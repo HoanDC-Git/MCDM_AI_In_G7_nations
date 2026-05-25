@@ -138,9 +138,3 @@ You can also run specific scripts under `src/` to focus on particular analysis c
   python src/visualization.py
   ```
   Downloads G7 geographic features and regenerates PNG maps in `outputs/figures/`.
-# MCDM_AI_In_G7_nations
-# MCDM_AI_In_G7_nations
-# MCDM_AI_In_G7_nations
-# MCDM_AI_In_G7_nations
-# MCDM_AI_In_G7_nations
-# MCDM_AI_In_G7_nations
