@@ -6,7 +6,7 @@ import numpy as np
 from data_loader import load_data, BASE_DIR
 
 def run_visualization():
-    print("--- Executing Data Visualization Maps ---")
+    print("--- Executing Data Visualization Maps and Professional Charts ---")
     
     # 1. Paths configuration
     output_fig_dir = os.path.join(BASE_DIR, 'outputs', 'figures')
@@ -14,6 +14,254 @@ def run_visualization():
     steps_csv_dir = os.path.join(BASE_DIR, 'outputs', 'csv', 'steps')
     
     os.makedirs(output_fig_dir, exist_ok=True)
+
+    # =========================================================================
+    # OFFLINE CHART 1: G7 Final Rankings and TOPSIS Scores (Horizontal Bar)
+    # =========================================================================
+    ranking_csv_path = os.path.join(steps_csv_dir, '9_Final_Ranking.csv')
+    if os.path.exists(ranking_csv_path):
+        print("Generating Chart: Overall Rankings...")
+        df_rank = pd.read_csv(ranking_csv_path)
+        df_rank_sorted = df_rank.sort_values(by='TOPSIS Score', ascending=True)
+        
+        fig, ax = plt.subplots(figsize=(10, 5.5))
+        # Premium blue gradient palette
+        colors = plt.cm.Blues(np.linspace(0.4, 0.85, len(df_rank_sorted)))
+        
+        bars = ax.barh(df_rank_sorted['Country'], df_rank_sorted['TOPSIS Score'], color=colors, height=0.6, edgecolor='none')
+        
+        # Grid lines
+        ax.xaxis.grid(True, linestyle='--', alpha=0.6, color='#cbd5e1')
+        ax.set_axisbelow(True)
+        
+        # Style spines
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
+        ax.spines['left'].set_color('#94a3b8')
+        ax.spines['bottom'].set_color('#94a3b8')
+        ax.tick_params(colors='#475569', labelsize=11)
+        
+        # Annotate scores and ranks
+        for i, bar in enumerate(bars):
+            width = bar.get_width()
+            y_val = bar.get_y() + bar.get_height()/2
+            row = df_rank_sorted.iloc[i]
+            ax.text(width + 0.015, y_val, f"{width:.4f} (Rank #{int(row['Rank'])})", 
+                    va='center', ha='left', fontsize=11, color='#1e293b', fontweight='bold')
+            
+        ax.set_xlabel('TOPSIS Closeness Coefficient (Higher is Better)', fontsize=12, labelpad=12, color='#1e293b', fontweight='semibold')
+        ax.set_title('Overall G7 AI Impact Evaluation (CRITIC-TOPSIS)', fontsize=15, pad=20, color='#0f172a', fontweight='bold')
+        ax.set_xlim(0, 0.8)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_fig_dir, 'G7_Final_Rankings.png'), dpi=300)
+        plt.close()
+
+    # =========================================================================
+    # OFFLINE CHART 2: CRITIC Criteria Weights (Horizontal Bar by Pillar)
+    # =========================================================================
+    weights_csv_path = os.path.join(steps_csv_dir, '4_CRITIC_Weights_Calculation.csv')
+    if os.path.exists(weights_csv_path):
+        print("Generating Chart: CRITIC Criteria Weights...")
+        df_weights = pd.read_csv(weights_csv_path, index_col=0)
+        df_weights = df_weights.dropna(subset=['CRITIC Weights'])
+        
+        matrix, alt_names, criteria_ids, criteria_names, types, pillars = load_data()
+        
+        criteria_list = []
+        for i in range(len(criteria_ids)):
+            c_id = criteria_ids[i]
+            c_name = criteria_names[i]
+            c_weight = df_weights.loc[c_id, 'CRITIC Weights']
+            
+            c_pillar = ""
+            for p_name, indices in pillars.items():
+                if i in indices:
+                    c_pillar = p_name
+                    break
+            criteria_list.append({
+                'ID': c_id,
+                'Name': c_name,
+                'Weight': c_weight,
+                'Pillar': c_pillar
+            })
+        
+        df_plot_weights = pd.DataFrame(criteria_list)
+        df_plot_weights_sorted = df_plot_weights.sort_values(by='Weight', ascending=True)
+        
+        fig, ax = plt.subplots(figsize=(12, 7.5))
+        
+        # Color palette by pillar
+        pillar_colors = {
+            'Economic Impact': '#2563eb',     # Blue
+            'Social Impact': '#10b981',       # Emerald Green
+            'Policy & Governance': '#d97706',  # Amber
+            'Tech Readiness': '#7c3aed'       # Purple
+        }
+        
+        bar_colors = [pillar_colors[row['Pillar']] for _, row in df_plot_weights_sorted.iterrows()]
+        
+        bars = ax.barh(df_plot_weights_sorted['Name'], df_plot_weights_sorted['Weight'], color=bar_colors, height=0.6, edgecolor='none')
+        
+        # Grid lines
+        ax.xaxis.grid(True, linestyle='--', alpha=0.6, color='#cbd5e1')
+        ax.set_axisbelow(True)
+        
+        # Style spines
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
+        ax.spines['left'].set_color('#94a3b8')
+        ax.spines['bottom'].set_color('#94a3b8')
+        ax.tick_params(colors='#475569', labelsize=10)
+        
+        # Annotate weights
+        for bar in bars:
+            width = bar.get_width()
+            y_val = bar.get_y() + bar.get_height()/2
+            ax.text(width + 0.003, y_val, f"{width*100:.2f}%", 
+                    va='center', ha='left', fontsize=10, color='#1e293b', fontweight='bold')
+            
+        ax.set_xlabel('Weight Contribution (CRITIC)', fontsize=12, labelpad=12, color='#1e293b', fontweight='semibold')
+        ax.set_title('CRITIC Criteria Weighting: Key Indicators of AI Impact', fontsize=15, pad=20, color='#0f172a', fontweight='bold')
+        ax.set_xlim(0, 0.17)
+        
+        from matplotlib.patches import Patch
+        legend_elements = [Patch(facecolor=color, label=pillar) for pillar, color in pillar_colors.items()]
+        ax.legend(handles=legend_elements, loc='lower right', title='Pillars', frameon=True, fontsize=10)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_fig_dir, 'CRITIC_Criteria_Weights.png'), dpi=300)
+        plt.close()
+
+    # =========================================================================
+    # OFFLINE CHART 3: Pillar Performance Heatmap (Countries vs Pillars)
+    # =========================================================================
+    analysis_csv_path = os.path.join(BASE_DIR, 'outputs', 'csv', 'analysis', 'Pillar_Dashboard.csv')
+    if os.path.exists(analysis_csv_path):
+        print("Generating Chart: Pillar Performance Heatmap...")
+        df_pillar = pd.read_csv(analysis_csv_path)
+        df_pillar_sorted = df_pillar.sort_values(by='Overall Rank')
+        
+        countries = df_pillar_sorted['Country'].tolist()
+        pillars_list = ['Economic Impact', 'Social Impact', 'Policy & Governance', 'Tech Readiness']
+        
+        score_matrix = []
+        for _, row in df_pillar_sorted.iterrows():
+            scores = [
+                row['Economic Impact Score'],
+                row['Social Impact Score'],
+                row['Policy & Governance Score'],
+                row['Tech Readiness Score']
+            ]
+            score_matrix.append(scores)
+            
+        score_matrix = np.array(score_matrix)
+        
+        fig, ax = plt.subplots(figsize=(10, 6.5))
+        im = ax.imshow(score_matrix, cmap='YlGnBu', aspect='auto', vmin=0, vmax=1)
+        
+        ax.set_xticks(np.arange(len(pillars_list)))
+        ax.set_yticks(np.arange(len(countries)))
+        
+        ax.set_xticklabels(pillars_list, fontsize=11, color='#1e293b', fontweight='semibold')
+        ax.set_yticklabels(countries, fontsize=11, color='#1e293b', fontweight='semibold')
+        
+        plt.setp(ax.get_xticklabels(), rotation=15, ha="right", rotation_mode="anchor")
+        
+        # Annotate score text inside cells
+        for i in range(len(countries)):
+            for j in range(len(pillars_list)):
+                score = score_matrix[i, j]
+                text_color = "white" if score > 0.6 else "black"
+                ax.text(j, i, f"{score:.4f}", ha="center", va="center", color=text_color, fontweight='bold', fontsize=11)
+                
+        cbar = ax.figure.colorbar(im, ax=ax, shrink=0.8)
+        cbar.ax.set_ylabel("Normalized TOPSIS Score", rotation=-90, va="bottom", fontsize=11, fontweight='semibold', labelpad=10)
+        cbar.ax.tick_params(labelsize=10)
+        
+        ax.set_title("Pillar-wise Performance Comparison (G7 Nations)", fontsize=15, pad=20, color='#0f172a', fontweight='bold')
+        
+        for edge in ['top', 'bottom', 'left', 'right']:
+            ax.spines[edge].set_visible(False)
+            
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_fig_dir, 'G7_Pillar_Performance_Heatmap.png'), dpi=300)
+        plt.close()
+
+    # =========================================================================
+    # OFFLINE CHART 4: Scenario Sensitivity Ranks (Line Plot)
+    # =========================================================================
+    scenario_csv_path = os.path.join(BASE_DIR, 'outputs', 'csv', 'scenario', 'Summary_Comparison.csv')
+    if os.path.exists(scenario_csv_path):
+        print("Generating Chart: Scenario Sensitivity Analysis...")
+        df_scenario = pd.read_csv(scenario_csv_path)
+        if 'Country' in df_scenario.columns:
+            df_scenario.set_index('Country', inplace=True)
+        elif 'Unnamed: 0' in df_scenario.columns:
+            df_scenario.rename(columns={'Unnamed: 0': 'Country'}, inplace=True)
+            df_scenario.set_index('Country', inplace=True)
+            
+        scenarios_cols = ['Original CRITIC', 'Balanced', 'Economy First', 'Social First']
+        scenarios_cols = [col for col in scenarios_cols if col in df_scenario.columns]
+        
+        df_scenario = df_scenario[scenarios_cols]
+        
+        fig, ax = plt.subplots(figsize=(10, 5.5))
+        
+        g7_colors = {
+            'Canada': '#e6194b', 
+            'France': '#3cb44b', 
+            'Germany': '#ffe119', 
+            'Italy': '#4363d8', 
+            'Japan': '#f58231', 
+            'United Kingdom': '#911eb4', 
+            'United States': '#46f0f0'
+        }
+        
+        markers = {'Canada': 'o', 'France': 's', 'Germany': '^', 'Italy': 'D', 'Japan': 'v', 'United Kingdom': 'p', 'United States': 'X'}
+        
+        for country in df_scenario.index:
+            y_ranks = df_scenario.loc[country, scenarios_cols].values
+            color = g7_colors.get(country, '#4b5563')
+            marker = markers.get(country, 'o')
+            
+            # Contrast tuning for visibility on white background
+            if country == 'United States':
+                color = '#0891b2'
+            elif country == 'Germany':
+                color = '#b58900'
+                
+            ax.plot(scenarios_cols, y_ranks, label=country, color=color, marker=marker, linewidth=2.5, markersize=8)
+            
+            # Label on ends
+            ax.text(len(scenarios_cols)-0.95, y_ranks[-1], f" {country} ({y_ranks[-1]})", 
+                    va='center', ha='left', color=color, fontweight='semibold', fontsize=10)
+            ax.text(-0.05, y_ranks[0], f"({y_ranks[0]}) ", 
+                    va='center', ha='right', color=color, fontweight='semibold', fontsize=10)
+            
+        ax.set_ylim(7.5, 0.5)
+        ax.set_yticks(range(1, 8))
+        
+        ax.set_ylabel('G7 Country Rank', fontsize=12, labelpad=12, color='#1e293b', fontweight='semibold')
+        ax.set_xlabel('Weight Allocation Scenarios', fontsize=12, labelpad=12, color='#1e293b', fontweight='semibold')
+        ax.set_title('Sensitivity of G7 Rankings across Policy Scenarios', fontsize=15, pad=20, color='#0f172a', fontweight='bold')
+        
+        ax.yaxis.grid(True, linestyle='--', alpha=0.6, color='#cbd5e1')
+        ax.xaxis.grid(True, linestyle=':', alpha=0.4, color='#cbd5e1')
+        ax.set_axisbelow(True)
+        
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
+        ax.spines['left'].set_color('#94a3b8')
+        ax.spines['bottom'].set_color('#94a3b8')
+        ax.tick_params(colors='#475569', labelsize=11)
+        
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.18), ncol=4, title='Countries', frameon=True, fontsize=10)
+        ax.set_xlim(-0.5, len(scenarios_cols)-0.5)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_fig_dir, 'Scenario_Sensitivity_Analysis.png'), dpi=300, bbox_inches='tight')
+        plt.close()
     
     # 2. Try to load world map data
     url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
